@@ -7,13 +7,13 @@ HEADERS  = {'Content-Type': 'application/json'}
 
 
 class LibcSearcher() :
-    def __init__(self, symbol_name:str=None, address:int=None) :
+    def __init__(self, **data) :
         self.constraint = {}
         self.libc_list  = []
         self.the_libc   = None
 
-        if (symbol_name is not None) and (address is not None) :
-            self.add_condition(symbol_name, address)
+        if data:
+            self.add_condition(data)
 
 
     def __len__(self) :
@@ -55,21 +55,22 @@ class LibcSearcher() :
                    "[ symbols ] : " + self.the_libc['symbols_url']
 
 
-    def add_condition(self, symbol_name:str, address:int) :
-        self.constraint[symbol_name] = address
+    def add_condition(self, data) :
+        for symbol_name,address in data.items():
+            self.constraint[symbol_name] = address
         self.libc_list = []
         self.the_libc  = None
         self.query_libc()
 
 
-    def dump(self, symbol_name:str) -> int :
+    def dump(self, symbol_name):
         self.pre_query_libc()
         if self.the_libc is None :
             self.determine_the_libc()
         return self.query_symbol(libc_id = self.the_libc['id'], symbol_name = symbol_name)
 
 
-    def select_libc(self, chosen_index:int=0xDEADBEEF) :
+    def select_libc(self, chosen_index=0xDEADBEEF) :
         self.pre_query_libc()
         if chosen_index == 0xDEADBEEF :
             for index, libc in enumerate(self.libc_list) :
@@ -115,15 +116,18 @@ class LibcSearcher() :
                   }
         result = requests.post(API_FIND, data=json.dumps(payload), headers=HEADERS)
         self.libc_list = json.loads(result.text)
-
         if len(self.libc_list) == 1 :
             self.the_libc = self.libc_list[0]
 
 
-    def query_symbol(self, libc_id:str, symbol_name:str) -> int :
+    def query_symbol(self, libc_id, symbol_name):
         payload = {
                     "symbols": 
                     [ symbol_name ]
                   }
         result = requests.post(API_LIBC+libc_id, data=json.dumps(payload), headers=HEADERS)
         return int(json.loads(result.text)['symbols'][symbol_name], 16)
+
+if __name__ == "__main__":
+    libc = LibcSearcher(read=0x7ffff7af2020,printf=0x7ffff7a46e40)
+    system_addr = libc.dump("system")
